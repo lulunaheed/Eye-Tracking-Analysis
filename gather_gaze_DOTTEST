@@ -1,0 +1,21 @@
+function [allGaze,percentValid,variability] = gather_gaze_DOTTEST(filename)
+filename='sunlight2'
+dats=load(filename)
+
+allGaze=[];
+validity=[];
+% length(dats.RawData)
+% dats.RawData(1).collected_gaze_data(1,2).RightEye.GazePoint.OnDisplayArea(1)
+for h=1:length(dats.RawData)
+    for j=1:length(dats.RawData(h).collected_gaze_data)
+    vec=dats.RawData(h).collected_gaze_data(1,j).RightEye.GazePoint.OnDisplayArea(1);
+    allGaze=[allGaze vec];
+    valid=dats.RawData(h).collected_gaze_data(1,j).RightEye.GazePoint.Validity;
+    validity=[validity valid];
+    end
+end
+
+percentValid=(sum(validity)/length(validity))*100
+[variability]=findThreshold(allGaze)
+
+end
