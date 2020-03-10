@@ -1,0 +1,62 @@
+function [SaccadeRatio,backRatio,meanSaccadeAmp,saccadePosAmp, saccadeNegAmp,meanEyeVelocity] = Saccades(fixStart,fixEnd,vals,timeVec)
+
+%% TOTAL SACCADES
+forwardSac=0; %Keep track of number of forward saccades
+totalSac=0; %Keep track of number of total saccades
+saccadeAmp=[]; %Keep track of saccade amplitude in pixels (need to later convert to letters)
+eyeVelocity=[];
+posAmp=[];
+negAmp=[];
+startLinePos=[];
+startLineTime=[];
+largeSaccade=0;
+
+for w=1:(length(fixStart)-1)
+    beforeSacTime=fixEnd(w); %Before saccade time
+    afterSacTime=fixStart(w+1); %After saccade time
+    
+    beforeSacPos=vals(find(beforeSacTime==timeVec)); %Before saccade eye position
+    afterSacPos=vals(find(afterSacTime==timeVec)); %After saccade eye position
+    
+    change=afterSacPos-beforeSacPos; %Difference in eye position
+    
+         if (isempty(startLinePos)==1)
+             velTimeStart=fixStart(1);
+             velPosStart=vals(fixStart(1)==timeVec);
+             velTime=beforeSacTime-velTimeStart;
+             velPos=beforeSacPos-velPosStart;
+             eyeVelocity=[eyeVelocity velPos/velTime];
+             
+             startLineTime=[startLineTime afterSacTime];
+             startLinePos=[startLinePos afterSacPos];
+             largeSaccade=largeSaccade+1;
+         elseif change<-0.2
+             velTimeStart=startLineTime(largeSaccade);
+             velPosStart=startLinePos(largeSaccade);
+             velTime=beforeSacTime-velTimeStart;
+             velPos=beforeSacPos-velPosStart;
+             eyeVelocity=[eyeVelocity velPos/velTime];
+             
+             startLineTime=[startLineTime afterSacTime];
+             startLinePos=[startLinePos afterSacPos];
+             largeSaccade=largeSaccade+1;
+         end
+    
+    if change>0 %If difference in eye position is positive
+        forwardSac=forwardSac+1; %Count as forward saccade
+        totalSac=totalSac+1; %Count as saccade
+        posAmp=[posAmp abs(change)];
+    else %If difference in eye position is negative
+        totalSac=totalSac+1; %Count as saccade
+        negAmp=[negAmp abs(change)];
+    end
+    saccadeAmp=[saccadeAmp abs(change)]; %Store absolute change in eye position between start and finish of saccade
+end
+backRatio=(totalSac-forwardSac)/totalSac;
+SaccadeRatio=forwardSac/totalSac;%Calculate ratio between forward and total number of saccades
+meanSaccadeAmp=mean(saccadeAmp); %Calculate mean saccade amplitude in pixels
+saccadePosAmp=mean(posAmp);
+saccadeNegAmp=mean(negAmp);
+meanEyeVelocity=mean(eyeVelocity);
+end
+
