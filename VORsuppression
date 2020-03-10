@@ -1,0 +1,103 @@
+function [meanRMSX,meanRMSY,meanResponseTime]=VORSuppression(file,num)
+%% Need to retrive eye data from both the transient dot and continuous dot
+%eye tracking tasks
+
+%% Eye Root Mean Square (RMS) position difference between transient dot and continuous dot
+%demonstrates the level of VOR suppression that occurred in the vehicle
+
+%% To calculate the RMS of Eye position, need to:
+%1. Square all the eye coordinate positions (x, y) separately
+%2. Take the Average of the Square values
+%3. Take the Square Root of the Average
+%file.name
+load(file.name)
+responseTimes=[];
+
+%load('s11_RM4__DOTTEST_C__1108_105802')
+% %VORSuppression(file,num)
+%
+%
+stimTimes= Metrics.DotTime(:,1)./(10^6);%Time at which red dot is presented at each position
+stimTimes= stimTimes-stimTimes(1);
+expTime=  TimeStamp.Device./(10^6);%Experiment time in microseconds
+expTime=expTime-expTime(1)-0.4058;
+stimPosX= Metrics.XY_0to1(:,1);  %Red dot positions on the x axis
+eyePosX=  RightEye.GazePoint.OnScreen(:,1);%Read x eye coordinates
+eyePosY= RightEye.GazePoint.OnScreen(:,2); %Read y eye coordinates
+
+timevec_left = (TimeStamp.System - TimeStamp.System(1))./1e6;
+timevec_right = (TimeStamp.System - TimeStamp.System(1))./1e6;
+time_start = Metrics.DotTime(:,1);
+time_start = (time_start - Metrics.DotTime(1,1))./1e6;
+time_end = Metrics.DotTime(:,2);
+time_end = (time_end - Metrics.DotTime(1,1))./1e6;
+%% Creating desired input vector
+Input_right_X = ones(length(timevec_right),1).*0.5;
+Input_right_Y = ones(length(timevec_right),1).*0.5;
+for vec = 1:length(timevec_right)
+    for idx = 1:length(Metrics.XY_0to1)
+        if timevec_right(vec)>=time_start(idx) && timevec_right(vec)<=time_end(idx)
+            Input_right_X(vec) = Metrics.XY_0to1(idx,1);
+            Input_right_Y(vec) = Metrics.XY_0to1(idx,2);
+        end
+    end
+end
+Input_left_X = ones(length(timevec_left),1).*0.5;
+Input_left_Y = ones(length(timevec_left),1).*0.5;
+for vec = 1:length(timevec_left)
+    for idx = 1:length(Metrics.XY_0to1)
+        if timevec_left(vec)>=time_start(idx) && timevec_left(vec)<=time_end(idx)
+            Input_left_X(vec) = Metrics.XY_0to1(idx,1);
+            Input_left_Y(vec) = Metrics.XY_0to1(idx,2);
+        end
+    end
+end
+
+
+% figure()
+% plot(expTime,eyePosX,'.-')
+% hold on
+% plot(timevec_left,Input_left_X,'.-')
+
+rmsX=[];
+rmsY=[];
+
+stimPosY=  Metrics.XY_pixels(:,2);%Red dot positions on the y axis
+eyePosY=  RightEye.GazePoint.OnScreen(:,2);%Read y eye coordinates
+
+for u=(2:2:12)
+    if abs(Metrics.XY_0to1(u)-0.5)>0.05
+    indas=find(Input_left_X==(Metrics.XY_0to1(u)));
+    
+    %Calculate RMS in x direction
+    la1=eyePosX(indas);
+    woo1=la1(isnan(la1)==0);
+    rmsX=[rmsX rms(woo1)]; %Jitter in horizontal direction
+    
+    %Calculate RMS in y direction
+    la2=eyePosY(indas);
+    woo2=la2(isnan(la2)==0);
+    rmsY=[rmsY rms(woo2)]; %Jitter in vertical direction
+    
+    y=eyePosX(indas);
+    t=timevec_left(indas);
+        if (isempty(y)==0)&&(isempty(t)==0)
+            S=stepinfo(y,t);
+            if (S.RiseTime<0.1)&&(S.RiseTime>0)
+            responseTimes=[responseTimes S.RiseTime];%Need to eventually add other measures such as SettlingTime, Overshoot, Peak, and PeakTime once time vector has been confirmed
+            end
+        else
+            responseTime=[responseTimes nan];
+        end
+    
+    end
+end
+meanResponseTime=mean(responseTimes(isnan(responseTimes)==0));
+meanRMSX=mean(rmsX);
+meanRMSY=mean(rmsY);
+end
+
+
+
+
+
