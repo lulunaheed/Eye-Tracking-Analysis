@@ -1,0 +1,86 @@
+function [nauseaRatings,eyeStrainRatings,comfortRatings,readingDifficultyRatings,alertnessRatings,epochGrayRatings,sweating,salivation,pallor,flushing,drowsiness,headache,dizzEyesClosed,dizzEyesOpen,nauseaGray] = MS_Measures(filename)
+
+load(filename.name);
+
+%% Comfort Measure Ratings (sliders)
+nauseaRatings=t_data.sub_assess(:,2);
+nauseaRatings((nauseaRatings==5))=nan;
+
+eyeStrainRatings=t_data.sub_assess(:,1);
+eyeStrainRatings((eyeStrainRatings==5))=nan;
+
+comfortRatings=t_data.sub_assess(:,3);
+comfortRatings((comfortRatings==5))=nan;
+
+readingDifficultyRatings=t_data.sub_assess(:,4);
+readingDifficultyRatings((readingDifficultyRatings==5))=nan;
+
+alertnessRatings=t_data.sub_assess(:,5);
+alertnessRatings((alertnessRatings==5))=nan;
+
+%% Graybiel MS Ratings
+grayRatings= t_data.gray;
+
+epochGrayRatings=[];
+sweating=[];
+salivation=[];
+pallor=[];
+flushing=[];
+drowsiness=[];
+headache=[];
+dizzEyesClosed=[];
+dizzEyesOpen=[];
+nauseaGray=[];
+vals=[];
+
+
+
+for x=1:7
+    
+    for i=1:9
+        cellNow=grayRatings{x,i};
+        if strcmp(cellNow,'Minimal')
+            curr=1;
+            vals=[vals curr];
+        elseif strcmp(cellNow,'Mild')
+            curr=2;
+            vals=[vals curr];
+        elseif strcmp(cellNow,'Moderate')
+            curr=4;
+            vals=[vals curr];
+        elseif strcmp(cellNow,'Major')
+            curr=8;
+            vals=[vals curr];
+        elseif strcmp(cellNow,'Severe')
+            curr=16;
+            vals=[vals curr];
+        else
+            curr=0;
+            vals=[vals curr];
+        end
+        if i==1
+            sweating=[sweating curr];
+        elseif i==2
+            salivation=[salivation curr];
+        elseif i==3
+            pallor=[pallor curr];
+        elseif i==4
+            flushing=[flushing curr];
+        elseif i==5
+            drowsiness=[drowsiness curr];
+        elseif i==6
+            headache=[headache curr];
+        elseif i==7
+            dizzEyesClosed=[dizzEyesClosed curr];
+        elseif i==8
+            dizzEyesOpen=[dizzEyesOpen curr];
+        else
+            nauseaGray=[nauseaGray curr];
+        end
+        
+    end
+    epochGrayRatings=[epochGrayRatings sum(vals)];
+end
+
+end
+
