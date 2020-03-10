@@ -1,0 +1,265 @@
+function [meanRMSXSubject, meanRMSYSubject, meanResponseTimeSubject, fixRateSubject, SaccadeRatioSubject,backRatioSubject, meanSaccadeAmpLettersSubject,saccadePosAmpSubject, saccadeNegAmpSubject, meanEyeVelocitySubject, readingSpeedSubject, nauseaRatingsSubject,epochGrayRatingsSubject,sweatingSubject,salivationSubject,pallorSubject,flushingSubject,drowsinessSubject,headacheSubject,dizzEyesClosedSubject,dizzEyesOpenSubject,nauseaGraySubject,eyeStrainRatingsSubject,comfortRatingsSubject,readingDifficultyRatingsSubject,alertnessRatingsSubject,meanPupilDiamChangeSubject,ampPupilDiamChangeSubject,meanPosDiamVelSubject,meanNegDiamVelSubject,meanDiamVelSubject,dilationsSubject,constrictionsSubject,diffPupilStartEnd,meanFixLengthSubject] = Reading_Speed()
+%% READING SPEED CALCULATION %%
+%Reading Speed= (Fixation Rate)*[(#Forward Saccades)/(#Total Saccades)]*(Average Saccadic Amplitude in Letters)
+
+%% Fixation Rate
+%Notes: Typical mean fixation duration during silent reading is
+%225-250*10-6 seconds
+
+%Set threshold time to 150 ms, so anything above this is considered to be a
+%fixation
+fixRateSubject=[];
+SaccadeRatioSubject=[];
+backRatioSubject=[];
+meanSaccadeAmpLettersSubject=[];
+saccadePosAmpSubject=[];
+saccadeNegAmpSubject=[];
+meanEyeVelocitySubject=[];
+readingSpeedSubject=[];
+epochGrayRatingsSubject=[];
+sweatingSubject=[];
+salivationSubject=[];
+pallorSubject=[];
+flushingSubject=[];
+drowsinessSubject=[];
+headacheSubject=[];
+dizzEyesClosedSubject=[];
+dizzEyesOpenSubject=[];
+nauseaGraySubject=[];
+eyeStrainRatingsSubject=[];
+comfortRatingsSubject=[];
+readingDifficultyRatingsSubject= [];
+alertnessRatingsSubject= [];
+
+meanPupilDiamChangeSubject=[];
+ampPupilDiamChangeSubject=[];
+meanPosDiamVelSubject=[];
+meanNegDiamVelSubject=[];
+meanDiamVelSubject=[];
+dilationsSubject=[];
+constrictionsSubject=[];
+meanFixLengthSubject=[];
+lala=[];
+meanResponseTimeSubject=[];
+meanRMSXSubject=[];
+meanRMSYSubject=[];
+
+cd '003 DOT TEST'
+boo=dir(pwd);
+
+if (length(boo)-2)~=8
+    disp(['There should be 8 files in 003 DOT TEST, and there are currently ' num2str(length(boo)-2) ' in ' pwd]);
+end
+ord=[1 2 5 6 3 4 7 8];
+if (length(boo)-2)==8
+    for f=1:(length(boo))
+        if ( strcmp(boo(f).name, '.') || strcmp(boo(f).name, '..') )
+            continue;
+        end
+        filey= dir(boo(f).name);
+        num=f-2;
+        [meanRMSX,meanRMSY,meanResponseTime]= VORSuppression(filey,num);
+        meanResponseTimeSubject=[meanResponseTimeSubject; meanResponseTime];
+        meanRMSXSubject=[meanRMSXSubject meanRMSX];
+        meanRMSYSubject=[meanRMSYSubject meanRMSY];
+    end
+    meanResponseTimeSubject= meanResponseTimeSubject(ord);
+    meanRMSXSubject=meanRMSXSubject(ord);
+    meanRMSYSubject=meanRMSYSubject(ord);
+else
+    meanResponseTimeSubject=ones(1,8)*nan;
+    meanRMSXSubject=ones(1,8)*nan;
+    meanRMSYSubject=ones(1,8)*nan;
+end
+if (length(boo)-2)==8
+    fileStart=dir(boo(3).name);
+    fileEnd=dir(boo(10).name);
+    
+    starting=load(fileStart.name);
+    ending=load(fileEnd.name);
+    
+    vals1=starting.LeftEye.Pupil.Diameter;
+    vals2=ending.LeftEye.Pupil.Diameter;
+    
+    vals3=starting.RightEye.Pupil.Diameter;
+    vals4=ending.RightEye.Pupil.Diameter;
+    
+    sPupilDiamLeft=vals1(isnan(vals1)==0);
+    sPupilDiamLeft=sPupilDiamLeft(sPupilDiamLeft~=-1);
+    if (length(sPupilDiamLeft))>0
+        startPupilDiamLeft=sPupilDiamLeft(1);
+    else
+        startPupilDiamLeft=nan;
+    end
+    
+    sPupilDiamRight=vals3(isnan(vals3)==0);
+    sPupilDiamRight=sPupilDiamRight(sPupilDiamRight~=-1);
+    if (length(sPupilDiamRight))>0
+        startPupilDiamRight=sPupilDiamRight(1);
+    else
+        startPupilDiamRight=nan;
+    end
+    
+    ePupilDiamLeft=vals2(isnan(vals2)==0);
+    ePupilDiamLeft=ePupilDiamLeft(ePupilDiamLeft~=-1);
+    if (length(ePupilDiamLeft))>0
+        endPupilDiamLeft=ePupilDiamLeft(1);
+    else
+        endPupilDiamLeft=nan;
+    end
+    
+    ePupilDiamRight=vals4(isnan(vals4)==0);
+    ePupilDiamRight=ePupilDiamRight(ePupilDiamRight~=-1);
+    if (length(ePupilDiamRight))>0
+        endPupilDiamRight=ePupilDiamRight(1);
+    else
+        endPupilDiamRight=nan;
+    end
+    
+    leftDiff=endPupilDiamLeft-startPupilDiamLeft;
+    rightDiff=endPupilDiamRight-startPupilDiamRight;
+    diffPupilStartEnd=mean([leftDiff rightDiff]);
+else
+    diffPupilStartEnd=nan;
+    startPupilDiamLeft=nan;
+    startPupilDiamRight=nan;
+end
+cd ..
+
+
+cd '005 EYE DATA'
+fills=dir(pwd);
+
+if (length(fills)-2)~=7
+    disp(['There should be 7 files in 005 EYE DATA, and there are currently ' num2str(length(fills)-2) ' in ' pwd]);
+end
+
+if (length(fills)-2)==7
+    readingSpeed=[];
+    for u=1:(length(fills))
+        if ( strcmp(fills(u).name, '.') || strcmp(fills(u).name, '..') )
+            continue;
+        end
+        filename= dir(fills(u).name);
+        
+        %% Fixation Rate
+        [fixStart,fixEnd,vals,timeVec,fixRate,meanPupilDiamChange,ampPupilDiamChange,meanPosDiamVel,meanNegDiamVel,meanDiamVel,dilations,constrictions,meanFixLength]=Fixation_Rate(filename,startPupilDiamLeft,startPupilDiamRight);
+        fixRateSubject=[fixRateSubject; fixRate];
+        %% Saccade Information
+        [SaccadeRatio,backRatio,meanSaccadeAmp,saccadePosAmp, saccadeNegAmp,meanEyeVelocity]=Saccades(fixStart,fixEnd,vals,timeVec);
+        %Convert mean saccade amplitude to amplitude in letters
+        %meanSaccadeAmpLetters=meanSaccadeAmp*(need value)
+        meanSaccadeAmpLetters=meanSaccadeAmp; %Need to change!
+        
+        SaccadeRatioSubject=[SaccadeRatioSubject; SaccadeRatio];
+        meanSaccadeAmpLettersSubject=[meanSaccadeAmpLettersSubject; meanSaccadeAmpLetters];
+        saccadePosAmpSubject=[saccadePosAmpSubject; saccadePosAmp];
+        saccadeNegAmpSubject=[saccadeNegAmpSubject; saccadeNegAmp];
+        meanEyeVelocitySubject=[meanEyeVelocitySubject; meanEyeVelocity];
+        backRatioSubject=[backRatioSubject; backRatio];
+        meanFixLengthSubject=[meanFixLengthSubject; meanFixLength];
+        
+        %% Pupil Diameters
+        meanPupilDiamChangeSubject=[meanPupilDiamChangeSubject; meanPupilDiamChange];
+        ampPupilDiamChangeSubject=[ampPupilDiamChangeSubject; ampPupilDiamChange];
+        meanPosDiamVelSubject=[meanPosDiamVelSubject; meanPosDiamVel];
+        meanNegDiamVelSubject=[meanNegDiamVelSubject; meanNegDiamVel];
+        meanDiamVelSubject=[meanDiamVelSubject; meanDiamVel];
+        dilationsSubject=[dilationsSubject; dilations];
+        constrictionsSubject=[constrictionsSubject; constrictions];
+        
+        %% Reading Speed for Passage
+        speed=(fixRate)*(SaccadeRatio)*(meanSaccadeAmpLetters);
+        readingSpeedSubject=[readingSpeedSubject; speed];
+    end
+    %dontkeep=0;
+else
+    %dontkeep=1;
+    fixRateSubject=ones(1,7)*nan;
+    meanSaccadeAmpLetters=ones(1,7)*nan;
+    SaccadeRatioSubject=ones(1,7)*nan;
+    meanSaccadeAmpLettersSubject=ones(1,7)*nan;
+    saccadePosAmpSubject=ones(1,7)*nan;
+    saccadeNegAmpSubject=ones(1,7)*nan;
+    meanEyeVelocitySubject=ones(1,7)*nan;
+    backRatioSubject=ones(1,7)*nan;
+    readingSpeedSubject=ones(1,7)*nan;
+    
+    meanPupilDiamChangeSubject=ones(1,7)*nan;
+    ampPupilDiamChangeSubject=ones(1,7)*nan;
+    meanPosDiamVelSubject=ones(1,7)*nan;
+    meanNegDiamVelSubject=ones(1,7)*nan;
+    meanDiamVelSubject=ones(1,7)*nan;
+    dilationsSubject=ones(1,7)*nan;
+    constrictionsSubject=ones(1,7)*nan;
+    meanFixLengthSubject=ones(1,7)*nan;
+    
+end
+
+cd ..
+cd '001 GUI DATA'
+fis=dir(pwd);
+nauseaRatingsSubject=[];
+grayRatingsSubject=[];
+
+if (length(fis)-2)~=1
+    disp(['There should be 1 file in 001 GUI DATA, and there are currently ' num2str(length(fis)-2) ' in ' pwd]);
+end
+if ((length(fis)-2)>0)
+    for h=1:(length(fis))
+        if ( strcmp(fis(h).name, '.') || strcmp(fis(h).name, '..') )
+            continue;
+        end
+        filename= dir(fis(h).name);
+        %% Nausea Ratings
+        [nauseaRatings,eyeStrainRatings,comfortRatings,readingDifficultyRatings,alertnessRatings,epochGrayRatings,sweating,salivation,pallor,flushing,drowsiness,headache,dizzEyesClosed,dizzEyesOpen,nauseaGray]=MS_Measures(filename);
+        nauseaRatingsSubject(1,:)= nauseaRatings;
+        eyeStrainRatingsSubject(1,:)= eyeStrainRatings;
+        comfortRatingsSubject(1,:)= comfortRatings;
+        readingDifficultyRatingsSubject(1,:)= readingDifficultyRatings;
+        alertnessRatingsSubject(1,:)= alertnessRatings;
+        
+        epochGrayRatingsSubject(1,:)= epochGrayRatings;
+        sweatingSubject(1,:)= sweating;
+        salivationSubject(1,:)= salivation;
+        pallorSubject(1,:)= pallor;
+        flushingSubject(1,:)= flushing;
+        drowsinessSubject(1,:)= drowsiness;
+        headacheSubject(1,:)= headache;
+        dizzEyesClosedSubject(1,:)= dizzEyesClosed;
+        dizzEyesOpenSubject(1,:)= dizzEyesOpen;
+        nauseaGraySubject(1,:)= nauseaGray;
+    end
+else
+    nauseaRatingsSubject(1,:)= ones(1,7)*nan;
+    
+    %     fixRateSubject=ones(1,7)*nan;
+    %     meanSaccadeAmpLetters=ones(1,7)*nan;
+    %     SaccadeRatioSubject=ones(1,7)*nan;
+    %     meanSaccadeAmpLettersSubject=ones(1,7)*nan;
+    %     saccadePosAmpSubject=ones(1,7)*nan;
+    %     saccadeNegAmpSubject=ones(1,7)*nan;
+    %     meanEyeVelocitySubject=ones(1,7)*nan;
+    %     backRatioSubject=ones(1,7)*nan;
+    %     readingSpeedSubject=ones(1,7)*nan;
+    
+    epochGrayRatingsSubject= ones(1,7)*nan;
+    eyeStrainRatingsSubject= ones(1,7)*nan;
+    comfortRatingsSubject= ones(1,7)*nan;
+    readingDifficultyRatingsSubject= ones(1,7)*nan;
+    alertnessRatingsSubject= ones(1,7)*nan;
+    
+    sweatingSubject= ones(1,7)*nan;
+    salivationSubject= ones(1,7)*nan;
+    pallorSubject= ones(1,7)*nan;
+    flushingSubject= ones(1,7)*nan;
+    drowsinessSubject= ones(1,7)*nan;
+    headacheSubject= ones(1,7)*nan;
+    dizzEyesClosedSubject= ones(1,7)*nan;
+    dizzEyesOpenSubject= ones(1,7)*nan;
+    nauseaGraySubject= ones(1,7)*nan;
+end
+cd ..
+cd ..
+
+end
