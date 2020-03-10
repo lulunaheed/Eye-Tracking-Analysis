@@ -1,0 +1,66 @@
+function Phase_Analysis(head, car, t)
+%% Head Acceleration
+hAccel= head;
+
+%% Vehicle Acceleration
+vAccel= car;
+
+%% Time Vector
+time=t;
+
+%% Convert Vehicle Acceleration To Position
+dt=time(2)-time(1);
+v=[];
+
+%% Car Acceleration to Velocity
+for i=1:(length(vAccel)-1)
+    v(1)=0;
+    v(i+1)=v(i)+vAccel(i)*dt;
+end
+v=detrend(v);
+
+%% Car Velocity to Position
+p=[];
+for s=1:(length(v)-1)
+    p(1)=0;
+    p(s+1)=p(s)+v(s)*dt;
+end
+
+%% Head Acceleration to Velocity
+vHead=[];
+for n=1:(length(hAccel)-1)
+    vHead(1)=0;
+    vHead(n+1)=vHead(n)+hAccel(n)*dt;
+end
+vHead=detrend(vHead);
+
+%% Head Velocity to Position
+pHead=[];
+for l=1:(length(vHead)-1)
+    pHead(1)=0;
+    pHead(l+1)=pHead(l)+vHead(l)*dt;
+end
+
+%% FIGURES
+figure(1)
+plot(time,vAccel,'b')
+hold on
+plot(time,v,'r')
+plot(time,p,'g')
+xlabel('Time')
+legend('Vehicle Acceleration','Vehicle Velocity','Vehicle Position','Location','northwest')
+
+figure(2)
+plot(p,hAccel,'.b')
+xlabel('Vehicle Position (m)')
+ylabel('Head Acceleration (m/s^2)')
+
+figure(3)
+plot(p,vHead,'.r')
+xlabel('Vehicle Position (m)')
+ylabel('Head Velocity (m/s)')
+
+figure(4)
+plot(p,pHead,'.g')
+xlabel('Vehicle Position (m)')
+ylabel('Head Position (m)')
