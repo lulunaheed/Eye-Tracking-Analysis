@@ -1,0 +1,287 @@
+function [fixStart,fixEnd,vals,timeVec,fixRate,meanPupilDiamChange,ampPupilDiamChange,meanPosDiamVel,meanNegDiamVel,meanDiamVel,dilations,constrictions,meanFixLength] = Fixation_Rate(filename,startPupilDiamLeft,startPupilDiamRight)
+%% Fixation Rate
+%Notes: Typical mean fixation duration during silent reading is
+%225-250*10-3 seconds
+
+%Set threshold time to ~124 ms, so anything above this is considered to be a
+%fixation
+
+load(filename.name)
+
+
+%load('s4_RM4__ReadingEpoch1_0111_132404');
+
+
+%% Calculate Fixation Rate
+lValidity=LeftEye.GazePoint.Validity;
+rValidity=RightEye.GazePoint.Validity;
+
+lEpoch1= LeftEye.GazePoint.OnScreen;
+rEpoch1= RightEye.GazePoint.OnScreen;
+
+lPupilDiam=LeftEye.Pupil.Diameter;
+rPupilDiam=RightEye.Pupil.Diameter;
+
+left=lEpoch1(:,1); %Left eye x position
+right=rEpoch1(:,1); %Right eye x position
+
+%% Butterworth Filter (may need to adjust thresholds)
+% butterworthCutoffFrequency = 3;
+% deltaT=0.0083*length(gaze_vec);
+% 
+% samplingFreq=length(gaze_vec)/deltaT;
+% [c,d]=butter(5, butterworthCutoffFrequency*2/samplingFreq);
+% new_gaze_vec=double(gaze_vec);
+% new_gaze_vec(isnan(new_gaze_vec)==1)=0;
+% filteredDataALL=filtfilt(c,d,new_gaze_vec)
+% gaze_vec=filtfilt(c,d,new_gaze_vec)
+
+%% Moving Average Filter (may need to adjust thresholds)
+% tiny=0.15;
+% for h=1:(length(gaze_vec)-1)
+%     if (isnan(gaze_vec(h))==1)&&(isnan(gaze_vec(h+1)==0))
+%         gaze_vec(h+1)=gaze_vec(h+1);
+%     elseif (isnan(gaze_vec(h+1))==1)&&(isnan(gaze_vec(h))==0)
+%         gaze_vec(h+1)=gaze_vec(h);
+%     elseif (isnan(gaze_vec(h))==1)||(isnan(gaze_vec(h+1))==1)
+%         continue
+%     else
+%     gaze_vec(h+1)=tiny*(gaze_vec(h+1))+(1-tiny)*(gaze_vec(h));
+%     end
+% end
+
+
+if sum(lValidity)>sum(rValidity)
+    for p=1:length(left)
+        if (left(p)<0)||(left(p)>1)
+            vals(p)=nan;
+        else
+            vals(p)=left(p);
+        end
+    end
+    valid=lValidity;
+    perGood=(sum(valid)/length(valid))*100;
+    origDiam=lPupilDiam;
+    pupilDiam=lPupilDiam(isnan(lPupilDiam)==0);
+    pupilDiam=pupilDiam(pupilDiam~=-1);
+    startDiam=startPupilDiamLeft;
+else
+    for p=1:length(right)
+        if (right(p)<0)||(right(p)>1)
+            vals(p)=nan;
+        else
+            vals(p)=right(p);
+        end
+    end
+    valid=rValidity;
+    perGood=(sum(valid)/length(valid))*100;
+    origDiam=rPupilDiam;
+    pupilDiam=rPupilDiam(isnan(rPupilDiam)==0);
+    pupilDiam=pupilDiam(pupilDiam~=-1);
+    startDiam=startPupilDiamRight;
+end
+
+variability=findThreshold(vals);
+binNums=length(TimeStamp.System);
+totalTime=abs((TimeStamp.System(end)- TimeStamp.System(1))/1e6);
+secBins=(totalTime)/binNums;
+
+fixStart=[];
+fixEnd=[];
+fixPosStart=[];
+fixPosEnd=[];
+
+timeVec=secBins:secBins:totalTime; %Time vector in seconds
+keepTime=[];
+numFix=0;
+newvals=[];
+keepPos=[];
+bad=[];
+
+for j=1:length(vals)
+    if valid(j)==0
+        newvals(j)=nan;
+    elseif valid(j)==1
+        newvals(j)=vals(j);
+    end
+end
+
+newvals((isnan(newvals)==1))=[];
+stdVals=std(newvals);
+fixRateVec=[];
+validBinPercentVec=[];
+maxu=floor(binNums/9);
+lengthfix=0;
+for mult=1:9
+    curLen=(maxu*mult-(maxu-1)):(maxu*mult-1);
+    validBinPercent=sum(valid(curLen))/length(curLen);
+    w=maxu*mult-(maxu-1);
+    g=w;
+    numFix=0;
+    while (g<(maxu*mult)-1)
+        refPos=vals(w); %Eye reference position
+        nowPos=vals(g+1); %Eye position that is being compared to reference eye position
+        refTime=timeVec(w); %Reference time
+        nowTime=timeVec(g+1); %Current time in vector
+        diffPos=nowPos-refPos; %Difference between current eye position and reference eye position
+        diffTime=nowTime-refTime;
+        
+        if ((isnan(refPos))==1) %If reference eye position is nan
+            w=w+1;
+            g=g+1;
+
+        elseif (isnan(diffPos)==1) %If difference between current and reference eye positions is nan (current eye position is nan)
+            g=g+1;
+        else
+            threshDist=variability; %Threshold distance is based on variability in dataset (standard deviation)
+            %threshDist=0.025; %
+            threshBins=11; %before: 11
+            %         end
+            if (abs(diffPos)<=threshDist)%If difference between reference position and current eye position is less than 0.015
+                keepTime=[keepTime nowTime]; %Record current time associated with eye position
+                keepPos=[keepPos nowPos]; %Record current position
+                if (length(keepTime)==threshBins)%if time spent at a location is greater than 100 ms, then count as a fixation
+                    numFix=numFix+1;
+                end
+                g=g+1;
+            else %if difference in eye position is greater than 0.015, stop recording as a fixation
+                w=g; %Update reference eye position index
+                if length(keepTime)>threshBins
+                    fixStart=[fixStart keepTime(1)]; %Record the starting fixation time
+                    fixEnd=[fixEnd keepTime(end)]; %Record the last fixation time
+                    fixPosStart=[fixPosStart keepPos(1)];
+                    fixPosEnd=[fixPosEnd keepPos(end)];
+                    lengthfix=lengthfix+length(keepTime);
+                end
+                keepTime=[]; %Reset fixation time vector
+                g=g+1;
+            end
+        end
+    end
+    fixRateVec=[fixRateVec (numFix/(totalTime/9))]; %Calculate fixation rate by dividing number of fixations during trial by trial length
+    validBinPercentVec=[validBinPercentVec validBinPercent];
+end
+a=1;
+b=1;
+whatSign=0;
+negDiamTime=[];
+keepNegDiams=[];
+posDiamTime=[];
+keepPosDiams=[];
+posDiamVel=[];
+negDiamVel=[];
+meanPosDiamVel=[];
+meanNegDiamVel=[];
+meanDiamVel=[];
+dilations=0;
+constrictions=0;
+
+if perGood>55
+    totalV=sum(validBinPercentVec);
+    fixRate=sum((validBinPercentVec/totalV).*fixRateVec);
+    meanFixLength=mean(fixEnd-fixStart);
+    %% Pupil Diameter
+    diffPupilDiam=(pupilDiam-startDiam)./(startDiam)*100;
+    meanPupilDiamChange= mean(diffPupilDiam);
+    ampPupilDiamChange=mean(abs(diffPupilDiam));
+    
+    for y=1:length(pupilDiam)
+        refDiam=origDiam(a);
+        nowDiam=origDiam(b+1);
+        diffDiam=nowDiam-refDiam;
+        refTime=timeVec(a); %Reference time
+        nowTime=timeVec(b+1);
+        if (isnan(refDiam)==1)||(refDiam==-1)
+            a=a+1;
+            b=b+1;
+        elseif (isnan(diffDiam)==1)||(nowDiam==-1)
+            b=b+1;
+        else
+            if (diffDiam>0)&&((whatSign==1)||(whatSign==0))
+                whatSign=1;
+                posDiamTime=[posDiamTime nowTime];
+                keepPosDiams=[keepPosDiams nowDiam];
+                dilations=dilations+1;
+            elseif (diffDiam<=0)&&((whatSign==-1)||(whatSign==0))
+                whatSign=-1;
+                negDiamTime=[negDiamTime nowTime];
+                keepNegDiams=[keepNegDiams nowDiam];
+                constrictions=constrictions+1;
+            elseif (diffDiam>0)&&(whatSign==-1)
+                whatSign=0;
+                negDiamVel=[negDiamVel (keepNegDiams(end)-refDiam)/(nowTime-refTime)];
+                negDiamTime=[];
+                keepNegDiams=[];
+                a=b;
+            elseif (diffDiam<=0)&&(whatSign==1)
+                whatSign=0;
+                posDiamVel=[posDiamVel (keepPosDiams(end)-refDiam)/(nowTime-refTime)];
+                posDiamTime=[];
+                keepPosDiams=[];
+                a=b;
+            end
+            b=b+1;
+        end
+    end
+    meanPosDiamVel= mean(posDiamVel);
+    meanNegDiamVel= mean(negDiamVel);
+    meanDiamVel=mean([posDiamVel negDiamVel]);
+else
+    meanPosDiamVel=0;
+    meanNegDiamVel=0;
+    meanDiamVel=0;
+    
+    dilations=0;
+    constrictions=0;
+    
+    meanPupilDiamChange=0;
+    ampPupilDiamChange=0;
+    fixRate=0;
+    meanFixLength=0;
+    disp(['This file was not used:' filename.name])
+end
+
+tim=[];
+poses=[];
+for g=1:length(fixStart)
+    a=fixStart(g);
+    b=fixEnd(g);
+    tim=[tim a b];
+    startPos=vals(timeVec==a);
+    endPos=vals(timeVec==b);
+    poses=[poses startPos endPos];
+end
+
+
+% %% Eye data Plot
+% numVals=length(lEpoch1);
+% figure(1)
+% plot(secBins:secBins:totalTime,lEpoch1(:,1),'.r-');
+% hold on
+% plot(secBins:secBins:totalTime,rEpoch1(:,1),'.-b');
+% newdat=0.5+10.*gradient(rEpoch1(:,1));
+% %size(rEpoch1(:,1))
+% plot(secBins:secBins:totalTime,newdat,'.-c')
+% findpeaks(newdat,secBins:secBins:totalTime,'MinPeakProminence',0.082)
+% % plot(secBins:secBins:totalTime,newvals,'og'); %valid eye data values
+% % plot(fixStart,fixPosEnd,'om');
+% 
+% plot(tim,poses,'om-')
+% plot(fixEnd,fixPosEnd,'ok');
+% %title(filename.name);
+% legend('X Position Left Eye', 'X Position Right Eye')
+% xlabel('Time Bin')
+% ylabel('X Position')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%validTotalPercent=
+%[SaccadeRatio,meanSaccadeAmp,meanEyeVelocity]= Saccades(fixStart,fixEnd,vals,timeVec)
+end
+
+
+
+
+
+
+
+
+
