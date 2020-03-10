@@ -1,0 +1,59 @@
+function [variability] = findThreshold(vals)
+%The purpose of this script is to remove the saccades from the data and
+%based on the noise level in the dataset, determine the threshold distance that will be 
+%allowed from the reference point for designating fixations.
+
+ %[gaze_vec, gaze_valid]=gather_gaze(file);
+% gaze_vec=double(vals);
+gaze_vec=vals;
+
+% thisP=gaze_vec(1:(end-1));
+% nextP=gaze_vec(2:end);
+
+% new_vec=abs(nextP-thisP); %Find the distance between consecutive points
+% noSaccInds=find(new_vec>0.028)%Find indices of movements that represent saccades
+% inds2=noSaccInds+1;
+% allInds=[noSaccInds inds2];
+
+noSaccInds=[];
+starts=[];
+ends=[];
+startInds=[];
+endInds=[];
+new_vec=[];
+numStarts=1;
+numEnds=0;
+skip=10;
+for k=1:(length(gaze_vec)-skip)
+    now=gaze_vec(k);
+    then=gaze_vec(k+skip);
+    diff=abs(then-now);
+    
+    if (isnan(now)==0)&&(isempty(starts)==1)
+        starts(1)=now;
+        startInds(1)=k;
+    end
+    
+    if diff>0.028
+        starts=[starts then];
+        ends=[ends now];
+        startInds=[startInds k+skip];
+        endInds=[endInds k];
+        numStarts=numStarts+1;
+        numEnds=numEnds+1;
+        
+        nowStart=numStarts-1;
+        addition=(gaze_vec((startInds(nowStart)):(endInds(numEnds)))-(gaze_vec((startInds(nowStart)))));
+        if (length(addition)==0)
+            addition=nan;
+        end
+        new_vec=[new_vec addition];
+        
+    end
+end
+% figure(34)
+% plot(new_vec,'.-')
+
+variability=std(new_vec(isnan(new_vec)==0));
+end
+
